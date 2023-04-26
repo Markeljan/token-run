@@ -1,8 +1,10 @@
-import "./App.css";
-import { useAccount, useConnect, useEnsName } from "wagmi";
+import { useAccount, useConnect, useEnsName, useSigner } from "wagmi";
 import { InjectedConnector } from "wagmi/connectors/injected";
 import kaboom from "kaboom";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ethers } from "ethers";
+import { CONTRAACT_ABI, CONTRACT_ADDRESS } from "./Solidity/ContractData";
+import { useNetwork } from "wagmi";
 
 function App() {
   const { address, isConnected } = useAccount();
@@ -10,8 +12,19 @@ function App() {
   const { connect } = useConnect({
     connector: new InjectedConnector(),
   });
-
+  const { data: signer, isError, isLoading } = useSigner();
+  const [gameOver, setGameOver] = useState(false);
+  const [score, setScore] = useState(0);
   const canvasRef = useRef(null);
+  const { chain, chains } = useNetwork()
+
+  useEffect(() => {
+    console.log("chainId: ", chain?.id);
+    if (chain?.id && chain.id !== 137 && gameOver) {
+      alert("Please switch to Polygon Network");
+    }
+  }, [chain, gameOver]);
+
   useEffect(() => {
     const k = kaboom({
       global: true,
@@ -21,7 +34,21 @@ function App() {
       width: 280,
     });
 
-    const { addLevel, area, destroy, get, layers, loadSprite, pos, rand, shake, sprite, text, vec2, wait } = k;
+    const {
+      addLevel,
+      area,
+      destroy,
+      get,
+      layers,
+      loadSprite,
+      pos,
+      rand,
+      shake,
+      sprite,
+      text,
+      vec2,
+      wait,
+    } = k;
 
     loadSprite("background", "sprites/background.png");
     loadSprite("fence-top", "sprites/fence-top.png");
@@ -32,8 +59,8 @@ function App() {
     loadSprite("post-top-right", "sprites/post-top-right.png");
     loadSprite("post-bottom-left", "sprites/post-bottom-left.png");
     loadSprite("post-bottom-right", "sprites/post-bottom-right.png");
-    loadSprite("snake-skin", "sprites/snake-skin.png");
-    loadSprite("pizza", "sprites/pizza.png");
+    loadSprite("snake-skin", "sprites/shiba.png");
+    loadSprite("pizza", "sprites/eth.png");
 
     layers(["background", "game"], "game");
 
@@ -99,7 +126,8 @@ function App() {
 
     collides("snake", "food", (s, f) => {
       snake_length++;
-      score++;
+      score += 10;
+      setScore(score);
       scoreLabel.text = `Score: ${score}`;
       respawn_food();
     });
@@ -148,12 +176,14 @@ function App() {
       run_action = false;
       shake(12);
       respawn_all();
+      setGameOver(true);
     });
 
     collides("snake", "snake", (s, t) => {
       run_action = false;
       shake(12);
       respawn_all();
+      setGameOver(true);
     });
 
     k.keyPress("up", () => {
@@ -229,23 +259,82 @@ function App() {
     });
   }, []);
 
+  async function handleMintTokens() {
+    if (!isConnected || !signer) {
+      alert("Please connect your wallet first!");
+      return;
+    }
+    const CONTRACT_WRITE = new ethers.Contract(CONTRACT_ADDRESS, CONTRAACT_ABI, signer);
+
+    const mintTX = await CONTRACT_WRITE.mintTokens(score)
+      .then((response: any) => {
+        console.log("Minted tokens:", response);
+      })
+      .catch((error: any) => {
+        console.error("Error minting tokens:", error);
+      });
+
+    // alert("Minted " + amountToMint + " tokens!"  + " Transaction Hash: " + mintTX.hash);
+    setScore(0);
+  }
+
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      height: '100vh'
-    }}>
-      {isConnected ? (
-        <div>Connected to {ensName ?? address}</div>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        flexDirection: "column",
+        justifyContent: "center",
+        height: "100vh",
+      }}
+    >
+      {!gameOver ? (
+        <>
+          {isConnected ? (
+            <div>Connected to {ensName ?? address}</div>
+          ) : (
+            <button onClick={() => connect()}>Connect Wallet</button>
+          )}
+          <canvas
+            ref={canvasRef}
+            style={{
+              display: "block",
+              margin: "0 auto",
+            }}
+          ></canvas>
+        </>
       ) : (
-        <button onClick={() => connect()}>Connect Wallet</button>
+        <div
+          style={{
+            color: "#f0f0f0",
+            fontSize: "1.5rem",
+            marginBottom: "1rem",
+          }}
+        >
+          <div>Game Over</div>
+          <div>Your score: {score}</div>
+          <button
+            onClick={() => handleMintTokens()}
+            style={{
+              backgroundColor: "#4caf50", // Button background color
+              border: "none", // No border
+              color: "white", // Button text color
+              padding: "10px 20px", // Button padding (top/bottom and left/right)
+              textAlign: "center", // Center the text inside the button
+              textDecoration: "none", // No underline for the text
+              display: "inline-block", // Display as an inline block
+              fontSize: "16px", // Button text size
+              margin: "4px 2px", // Button margin (top/bottom and left/right)
+              cursor: "pointer", // Button cursor (hand icon)
+              borderRadius: "8px", // Button border-radius (rounded corners)
+              boxShadow: "0 2px 5px rgba(0, 0, 0, 0.25)", // Box shadow (adds depth)
+              transition: "all 0.3s", // Transition for hover effect
+            }}
+          >
+            Mint {score} RUN tokens
+          </button>
+        </div>
       )}
-      <canvas ref={canvasRef} style={{
-        display: 'block',
-        margin: '0 auto',
-      }}></canvas>
     </div>
   );
 }
