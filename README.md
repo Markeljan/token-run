@@ -1,3 +1,5 @@
+<img width="888" alt="image" src="https://user-images.githubusercontent.com/12901349/234686075-6f0fa55f-49e7-45d2-86a3-64f75fd02c86.png">
+
 <h1><strong></strong>Token Run: A Web3-Connected Snake Game</h1>
 <p><strong></strong>Token Run is a web3-connected snake game for the <strong>itch.io Gamedev.js Jam 2023</strong>.</p>
 <p><strong><br></strong></p><p><strong>To Play:</strong></p>
